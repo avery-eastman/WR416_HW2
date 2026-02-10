@@ -1,0 +1,103 @@
+---
+title: 'Analyzing Rainwater Harvesting Time Series Data'
+author: "Avery Eastman"
+format: 
+  html:
+    code-fold: true
+    toc: true
+execute:
+  echo: true
+---
+
+hw2data.csv has the daily rainfall from the Fort Collins weather station for this summer. Your task is to calculate how much rainfall would be in a rain barrel each day based on the rain inputs (supply) and the irrigation use (demand).
+
+### Steps:
+
+1.  Calculate the volume of water that could be harvested each day, assuming a roof area of 431 ft2 and an efficiency of 0.93. 
+
+2.  Assume the demand (water use for irrigation) is 7 gallons per day, and irrigation is only used on days without rain
+
+3.  Start calculations for volume of water in the barrel on the first day with rain. The volume of water cannot exceed the barrel capacity, which is 48 gallons.
+
+4.  After the first day with rain, the volume of water in the barrel is the previous day’s volume + current day rainfall input volume – demand volume
+
+5.  The volume in the barrel cannot be negative, so if the volume drops below zero on any day, set that day’s volume to 0
+
+### Deliverables:
+
+1.  Graph of water volume (y-axis) vs. date (x-axis). Please use an xy barrel and (b) the 100 gallon barrel scatter plot with lines, no points. Label your axes. Do not include a plot title; instead make a figure caption below the graph.
+
+2.  Make the same graph as in (1) but using a 100 gallon barrel.
+
+3.  Count the number of days when the barrel is empty for (a) the 48 gallon
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+```
+
+```{r, message=FALSE, warning=FALSE}
+rainwater_data = read_csv('hw2data.csv')
+
+clean_data <- na.omit(rainwater_data)
+
+capacity = 48
+
+clean_data$date <- mdy(clean_data$date)
+
+clean_data$demand <- ifelse(clean_data$P_in>0,0,7)
+
+clean_data$volume <- clean_data$P_in*431*0.93*7.48/12
+
+clean_data$vol_net <- 0
+
+for (i in 2:nrow(clean_data)) {
+  clean_data[i,'vol_net']=ifelse((clean_data[i-1,'vol_net']+clean_data[i,'volume'])<=capacity,
+                                 clean_data[i-1,'vol_net']+clean_data[i,'volume']-clean_data[i,'demand'],
+                                 capacity)
+  clean_data[i,'vol_net']=ifelse(clean_data[i,'vol_net']<0,0,clean_data[i,'vol_net'])
+}
+```
+
+```{r}
+ggplot()+geom_line(data = clean_data, aes(x=date, y=vol_net))+
+  ylab('Volume (gallons)')+
+  xlab('Date')
+```
+
+Figure 1. Daily volume of water collected over summer 2025 in Fort Collins with a 48-gallon rain barrel, given a 7 gallons/day water demand.
+
+```{r}
+days_empty_48 = sum(clean_data$vol_net == 0)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+capacity_2nd = 100
+
+data_100 <- clean_data
+
+data_100$vol_net <- 0
+
+for (i in 2:nrow(data_100)) {
+  data_100[i,'vol_net']=ifelse((data_100[i-1,'vol_net']+data_100[i,'volume'])<=capacity_2nd,
+                               data_100[i-1,'vol_net']+data_100[i,'volume']-data_100[i,'demand'],
+                                 capacity_2nd)
+  data_100[i,'vol_net']=ifelse(data_100[i,'vol_net']<0,0,data_100[i,'vol_net'])
+}
+```
+
+```{r}
+ggplot()+geom_line(data = data_100, aes(x=date, y=vol_net))+
+  ylab('Volume (gallons)')+
+  xlab('Date')
+```
+
+Figure 2. Daily volume of water collected over summer 2025 in Fort Collins with a 100-gallon rain barrel, given a 7 gallons/day water demand. 
+
+```{r}
+days_empty_100 = sum(data_100$vol_net == 0)
+```
+
+The number of days that the rain barrel is empty for the 48-gallon barrel is 15 days. The number of days that the rain barrel is empty for the 100-gallon barrel is 2 days.
